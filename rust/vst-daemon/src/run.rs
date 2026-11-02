@@ -36,7 +36,6 @@ use vst_git::recover::{recover_not_started_sessions, sweep_direct_pty_sessions_o
 use vst_git::DirectPtyRegistry;
 use vst_lifecycle::cloudflared;
 use vst_lifecycle::lifecycle::LifecyclePollerHandle;
-use vst_lifecycle::pr_poller::PrPollerHandle;
 use vst_lifecycle::schedule_poller::SchedulePollerHandle;
 use vst_lifecycle::tailscale_serve;
 use vst_proc::tmux::Tmux;
@@ -574,6 +573,10 @@ pub async fn run_daemon(_opts: DaemonOptions) -> Result<()> {
     // Delete exited plain terminals: sweep stale ones now, then follow events.
     let terminal_reaper_handle =
         vst_routes::terminal_reaper::spawn_exited_terminal_reaper(state.session_routes.clone());
+    // The PR poller lives on `AppState` (built in `build_state`, together with
+    // the focus-hint list) — grab its handle before the state is consumed by
+    // the router.
+    let pr_poller = state.pr_poller.clone();
     let router = router_from_state(state);
 
     // ── Pollers ───────────────────────────────────────────────────────────────
@@ -583,8 +586,9 @@ pub async fn run_daemon(_opts: DaemonOptions) -> Result<()> {
     );
     let lifecycle_handle = lifecycle_poller.clone().start();
 
-    let pr_poller = Arc::new(PrPollerHandle::new(store.clone(), broadcaster.clone()));
-    let pr_handle = pr_poller.clone().start();
+    // ONE task: broadcaster subscriber + coalescer driver + 45 s tick, so a
+    // single abort stops all three.
+    let pr_handle = pr_poller.start();
 
     let schedule_poller = Arc::new(SchedulePollerHandle::new(
         store.clone(),
