@@ -573,10 +573,11 @@ pub async fn run_daemon(_opts: DaemonOptions) -> Result<()> {
     // Delete exited plain terminals: sweep stale ones now, then follow events.
     let terminal_reaper_handle =
         vst_routes::terminal_reaper::spawn_exited_terminal_reaper(state.session_routes.clone());
-    // The PR poller lives on `AppState` (built in `build_state`, together with
-    // the focus-hint list) — grab its handle before the state is consumed by
-    // the router.
+    // The PR poller and diffstat poller live on `AppState` (built in `build_state`,
+    // together with the focus-hint list) — grab their handles before the state
+    // is consumed by the router.
     let pr_poller = state.pr_poller.clone();
+    let diffstat_poller = state.diffstat_poller.clone();
     let router = router_from_state(state);
 
     // ── Pollers ───────────────────────────────────────────────────────────────
@@ -589,6 +590,7 @@ pub async fn run_daemon(_opts: DaemonOptions) -> Result<()> {
     // ONE task: broadcaster subscriber + coalescer driver + 45 s tick, so a
     // single abort stops all three.
     let pr_handle = pr_poller.start();
+    let diffstat_handle = diffstat_poller.start();
 
     let schedule_poller = Arc::new(SchedulePollerHandle::new(
         store.clone(),
@@ -628,6 +630,7 @@ pub async fn run_daemon(_opts: DaemonOptions) -> Result<()> {
         // Abort pollers and any still-running post-bind boot work.
         lifecycle_handle.abort();
         pr_handle.abort();
+        diffstat_handle.abort();
         schedule_handle.abort();
         limits_handle.abort();
         terminal_reaper_handle.abort();

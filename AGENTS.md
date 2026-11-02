@@ -24,9 +24,9 @@ to refactor it in an unrelated PR.
 
 ### Backend (Rust)
 
-- **Dependencies are one-way.** Today: `vst-types` (no I/O; serde types + `Broadcaster`) ←
-  `vst-proc`/`vst-store`/`vst-rpc`/`vst-tasks` ← `vst-git`/`vst-activity` (types, store) ← `vst-agents` ← `vst-lifecycle`/`vst-ws` ←
-  `vst-lsp`/`vst-routes` ← `vst-daemon` ← `vst-cli`. `vst-agy-stream-acp` is a leaf crate with no `vst-*` deps, depended on only by `vst-daemon` (hidden `agy-stream-acp` subcommand). No library crate depends on `vst-routes`/`vst-daemon`.
+- **Dependencies are one-way.** Today: `vst-types` (no I/O; serde types + `Broadcaster`, `Coalescer`) ←
+  `vst-proc`/`vst-store`/`vst-rpc`/`vst-tasks` ← `vst-git`/`vst-activity` ← `vst-agents` ← `vst-lifecycle`/`vst-ws` ←
+  `vst-lsp`/`vst-routes` ← `vst-daemon` ← `vst-cli`. `vst-diffstat` (deps: `vst-git`, `vst-store`, `vst-types` only) sits beside `vst-lifecycle`/`vst-ws` and is depended on only by `vst-daemon`. `vst-agy-stream-acp` is a leaf crate with no `vst-*` deps, depended on only by `vst-daemon` (hidden `agy-stream-acp` subcommand). No library crate depends on `vst-routes`/`vst-daemon`.
 - **One feature, one owner.** A new service/domain gets its own module or crate owning its state,
   scheduling and cache. Don't grow `vst-lifecycle` (already a grab-bag), `vst-agents` or `vst-routes`.
 - **New feature crates stay CLI-agnostic (target):** take per-CLI behaviour by injection (closure/trait
